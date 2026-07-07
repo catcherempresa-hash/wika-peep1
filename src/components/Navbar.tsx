@@ -3,6 +3,7 @@ import { auth, isFirebaseConfigured } from '../firebase';
 import { signOut } from 'firebase/auth';
 
 import logoWika from '../assets/logo-wika.png';
+import { getUserDisplayName } from '../utils/userDisplayName';
 
 interface Props {
   subtitle?: string;
@@ -16,6 +17,8 @@ export default function Navbar({ subtitle, showBack, backTo, backLabel }: Props)
   const user = isFirebaseConfigured
     ? auth?.currentUser
     : { email: localStorage.getItem('wika_mock_session') || 'operador@wika.com' };
+
+  const displayName = getUserDisplayName(user?.email);
 
   async function handleLogout() {
     if (!isFirebaseConfigured) {
@@ -57,7 +60,7 @@ export default function Navbar({ subtitle, showBack, backTo, backLabel }: Props)
         )}
         {user && (
           <>
-            <span className="navbar-user-name">{user.email?.split('@')[0]}</span>
+            <span className="navbar-user-name">{displayName}</span>
             <button
               className="btn btn-ghost btn-sm"
               onClick={handleLogout}
