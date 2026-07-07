@@ -1,4 +1,4 @@
-import { db, isFirebaseConfigured } from './firebase';
+import { auth, db, isFirebaseConfigured } from './firebase';
 import {
   doc,
   getDoc,
@@ -15,12 +15,30 @@ import { FAMILIAS, BLOCOS, LIMITE_TRANSBORDO, type RegistroCaixa } from './const
 
 const LIMITES_KEY = 'wika_limites_blocos';
 const DEFAULT_LIMITE = 40;
+const DEMO_EMAIL = 'teste@wika.com';
+
+function normalizeEmail(email?: string | null): string | null {
+  const normalized = email?.trim().toLowerCase();
+  return normalized || null;
+}
+
+function getCurrentUserEmail(): string | null {
+  if (auth?.currentUser?.email) {
+    return normalizeEmail(auth.currentUser.email);
+  }
+  return normalizeEmail(localStorage.getItem('wika_mock_session'));
+}
+
+function shouldUseLocalStorage(): boolean {
+  if (!isFirebaseConfigured) return true;
+  return getCurrentUserEmail() === DEMO_EMAIL;
+}
 
 export async function getLimitesBloco(): Promise<Record<number, number>> {
   const defaults: Record<number, number> = {};
   for (let i = 1; i <= 9; i++) defaults[i] = DEFAULT_LIMITE;
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     try {
       const data = localStorage.getItem(LIMITES_KEY);
       return data ? { ...defaults, ...JSON.parse(data) } : defaults;
@@ -34,7 +52,7 @@ export async function getLimitesBloco(): Promise<Record<number, number>> {
 }
 
 export async function setLimiteBloco(bloco: number, limite: number): Promise<void> {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     const atual = await getLimitesBloco();
     atual[bloco] = limite;
     localStorage.setItem(LIMITES_KEY, JSON.stringify(atual));
@@ -47,7 +65,7 @@ export function subscribeLimitesBloco(cb: (limites: Record<number, number>) => v
   const defaults: Record<number, number> = {};
   for (let i = 1; i <= 9; i++) defaults[i] = DEFAULT_LIMITE;
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     getLimitesBloco().then(cb);
     return () => {};
   }
@@ -62,7 +80,7 @@ export function subscribeLimitesBloco(cb: (limites: Record<number, number>) => v
 export type PedidoResumo = { pedido: string; caixas: RegistroCaixa[] };
 
 export async function getPedidosByBloco(bloco: number): Promise<PedidoResumo[]> {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     const result: PedidoResumo[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -99,7 +117,7 @@ function notifyListeners(pedido: string, caixas: RegistroCaixa[]) {
 // ── Pedidos ──────────────────────────────────────────────────────────────────
 
 export async function getPedido(pedido: string): Promise<RegistroCaixa[]> {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     try {
       const data = localStorage.getItem('pedido:' + pedido);
       return data ? JSON.parse(data) : [];
@@ -114,7 +132,7 @@ export async function getPedido(pedido: string): Promise<RegistroCaixa[]> {
 }
 
 export async function setPedido(pedido: string, caixas: RegistroCaixa[]): Promise<void> {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     localStorage.setItem('pedido:' + pedido, JSON.stringify(caixas));
     notifyListeners(pedido, caixas);
     return;
@@ -124,7 +142,7 @@ export async function setPedido(pedido: string, caixas: RegistroCaixa[]): Promis
 }
 
 export async function deletePedido(pedido: string): Promise<void> {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     localStorage.removeItem('pedido:' + pedido);
     notifyListeners(pedido, []);
     return;
@@ -134,7 +152,7 @@ export async function deletePedido(pedido: string): Promise<void> {
 }
 
 export function subscribePedido(pedido: string, cb: (caixas: RegistroCaixa[]) => void) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     // Call immediately
     getPedido(pedido).then(cb);
     // Listen to local changes
@@ -157,7 +175,7 @@ export function subscribePedido(pedido: string, cb: (caixas: RegistroCaixa[]) =>
 // ── Contadores de bloco ───────────────────────────────────────────────────────
 
 export async function getContador(bloco: number): Promise<number> {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     try {
       const data = localStorage.getItem('contador:' + bloco);
       return data ? parseInt(data, 10) : 0;
@@ -172,7 +190,7 @@ export async function getContador(bloco: number): Promise<number> {
 }
 
 export async function nextPosicao(bloco: number): Promise<number> {
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     const val = (await getContador(bloco)) + 1;
     localStorage.setItem('contador:' + bloco, String(val));
     return val;
@@ -258,7 +276,7 @@ export async function liberarPosicao(pedido: string): Promise<void> {
 export function subscribeOcupacao(cb: (ocupacao: Record<number, number>) => void) {
   const initialOcupacao = () => ({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 });
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseLocalStorage()) {
     const calculateLocal = () => {
       const oc: Record<number, number> = initialOcupacao();
       for (let i = 0; i < localStorage.length; i++) {

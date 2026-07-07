@@ -32,6 +32,9 @@ export default function Login() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      if (email.trim().toLowerCase() === 'teste@wika.com') {
+        localStorage.setItem('wika_mock_session', email);
+      }
       navigate('/estacoes');
     } catch (err: any) {
       const code = err?.code ?? '';

@@ -1,5 +1,6 @@
 const DISPLAY_NAME_BY_EMAIL: Record<string, string> = {
   'diego@wika.com': 'Diego',
+  'teste@wika.com': 'Conta Teste',
 };
 
 const STORAGE_KEY = 'wika_user_display_names';
