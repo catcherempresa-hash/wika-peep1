@@ -150,7 +150,7 @@ export default function SelectStation() {
               <div key={h} style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)', padding: '6px 0' }}>{h}</div>
             ))}
             {/* Rows */}
-            {ROWS.map(({ rua, blocos }, rowIdx) => (
+            {ROWS.map(({ rua, blocos }) => (
               <React.Fragment key={rua}>
                 <div style={{ fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', paddingRight: 8, whiteSpace: 'nowrap' }}>
                   {rua}
