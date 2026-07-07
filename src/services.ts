@@ -7,8 +7,87 @@ import {
   runTransaction,
   onSnapshot,
   collection,
+  getDocs,
 } from 'firebase/firestore';
 import { FAMILIAS, BLOCOS, LIMITE_TRANSBORDO, type RegistroCaixa } from './constants';
+
+// ── Limites por bloco ─────────────────────────────────────────────────────────
+
+const LIMITES_KEY = 'wika_limites_blocos';
+const DEFAULT_LIMITE = 40;
+
+export async function getLimitesBloco(): Promise<Record<number, number>> {
+  const defaults: Record<number, number> = {};
+  for (let i = 1; i <= 9; i++) defaults[i] = DEFAULT_LIMITE;
+
+  if (!isFirebaseConfigured) {
+    try {
+      const data = localStorage.getItem(LIMITES_KEY);
+      return data ? { ...defaults, ...JSON.parse(data) } : defaults;
+    } catch {
+      return defaults;
+    }
+  }
+
+  const snap = await getDoc(doc(db, 'config', 'limites'));
+  return snap.exists() ? { ...defaults, ...(snap.data() as Record<number, number>) } : defaults;
+}
+
+export async function setLimiteBloco(bloco: number, limite: number): Promise<void> {
+  if (!isFirebaseConfigured) {
+    const atual = await getLimitesBloco();
+    atual[bloco] = limite;
+    localStorage.setItem(LIMITES_KEY, JSON.stringify(atual));
+    return;
+  }
+  await setDoc(doc(db, 'config', 'limites'), { [bloco]: limite }, { merge: true });
+}
+
+export function subscribeLimitesBloco(cb: (limites: Record<number, number>) => void) {
+  const defaults: Record<number, number> = {};
+  for (let i = 1; i <= 9; i++) defaults[i] = DEFAULT_LIMITE;
+
+  if (!isFirebaseConfigured) {
+    getLimitesBloco().then(cb);
+    return () => {};
+  }
+
+  return onSnapshot(doc(db, 'config', 'limites'), (snap) => {
+    cb(snap.exists() ? { ...defaults, ...(snap.data() as Record<number, number>) } : defaults);
+  });
+}
+
+// ── Pedidos por bloco ─────────────────────────────────────────────────────────
+
+export type PedidoResumo = { pedido: string; caixas: RegistroCaixa[] };
+
+export async function getPedidosByBloco(bloco: number): Promise<PedidoResumo[]> {
+  if (!isFirebaseConfigured) {
+    const result: PedidoResumo[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('pedido:')) {
+        try {
+          const caixas: RegistroCaixa[] = JSON.parse(localStorage.getItem(key) || '[]');
+          if (caixas.some((c) => c.bloco === bloco)) {
+            result.push({ pedido: key.replace('pedido:', ''), caixas: caixas.filter((c) => c.bloco === bloco) });
+          }
+        } catch {}
+      }
+    }
+    return result;
+  }
+
+  const snap = await getDocs(collection(db, 'pedidos'));
+  const result: PedidoResumo[] = [];
+  snap.forEach((d) => {
+    const caixas = (d.data().caixas ?? []) as RegistroCaixa[];
+    const doBloco = caixas.filter((c) => c.bloco === bloco);
+    if (doBloco.length > 0) result.push({ pedido: d.id, caixas: doBloco });
+  });
+  return result;
+}
+
 
 // Helper for local storage subscription listeners
 const listeners: Array<(...args: any[]) => void> = [];

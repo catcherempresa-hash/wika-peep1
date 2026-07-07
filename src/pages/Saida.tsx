@@ -4,6 +4,8 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import { getPedido, marcarCompleto, liberarPosicao } from '../services';
 import { BLOCOS, type RegistroCaixa } from '../constants';
 
+type CompleteModal = { pedido: string; registros: RegistroCaixa[] } | null;
+
 type ResultState =
   | { type: 'found'; pedido: string; registros: RegistroCaixa[]; isCompleto: boolean }
   | { type: 'released'; pedido: string }
@@ -14,6 +16,7 @@ export default function Saida() {
   const [pedido, setPedido] = useState('');
   const [loading, setLoading] = useState<'buscar' | 'completo' | 'liberar' | null>(null);
   const [result, setResult] = useState<ResultState>(null);
+  const [completeModal, setCompleteModal] = useState<CompleteModal>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
 
   function handleScanResult(code: string) {
@@ -46,10 +49,12 @@ export default function Saida() {
 
   async function handleMarcarCompleto() {
     if (result?.type !== 'found') return;
+    const pedidoAtual = result.pedido;
     setLoading('completo');
     try {
-      const novos = await marcarCompleto(result.pedido);
-      setResult({ type: 'found', pedido: result.pedido, registros: novos, isCompleto: true });
+      const novos = await marcarCompleto(pedidoAtual);
+      setResult({ type: 'found', pedido: pedidoAtual, registros: novos, isCompleto: true });
+      setCompleteModal({ pedido: pedidoAtual, registros: novos });
     } catch (err: any) {
       setResult({ type: 'error', message: err?.message ?? 'Erro ao marcar como completo.' });
     } finally {
@@ -243,6 +248,96 @@ export default function Saida() {
         onClose={() => setScannerOpen(false)}
         onResult={handleScanResult}
       />
+
+      {/* Modal: Mover para coleta */}
+      {completeModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '24px',
+            animation: 'fadeIn 200ms ease',
+          }}
+        >
+          <div style={{
+            background: 'var(--surface)',
+            borderRadius: '24px',
+            padding: '32px 28px 28px',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+            animation: 'slideUp 280ms cubic-bezier(0.34,1.56,0.64,1)',
+          }}>
+            {/* Ícone */}
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #004C97, #0077cc)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px',
+              boxShadow: '0 8px 24px rgba(0,76,151,0.4)',
+            }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" />
+                <path d="M10 12l2 2 4-4" />
+              </svg>
+            </div>
+
+            <h2 style={{ textAlign: 'center', margin: '0 0 4px', fontSize: '1.25rem', color: 'var(--wika-dark)' }}>
+              Pedido {completeModal.pedido}
+            </h2>
+            <p style={{ textAlign: 'center', margin: '0 0 20px', fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Mova as caixas para a coluna C
+            </p>
+
+            {/* Lista de novas posições */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24, maxHeight: '45vh', overflowY: 'auto', paddingRight: 4 }}>
+              {completeModal.registros.map((r, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 16px',
+                  background: 'var(--wika-blue-subtle)',
+                  borderRadius: '12px',
+                  border: '1.5px solid var(--wika-blue)',
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)' }}>{r.caixa}</div>
+                    {r.codigoItem && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                        Item: {r.codigoItem}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--wika-blue-dark)', lineHeight: 1 }}>
+                      Bloco {r.bloco}
+                    </div>
+                    <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--wika-blue)', marginTop: 2 }}>
+                      Pos. {String(r.posicao).padStart(3, '0')}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Botão de confirmação */}
+            <button
+              id="saida-confirmar-movida"
+              className="btn btn-primary btn-full"
+              style={{ fontSize: '1rem', padding: '14px', gap: '10px' }}
+              onClick={() => setCompleteModal(null)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Caixas movidas para a coluna C ✓
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

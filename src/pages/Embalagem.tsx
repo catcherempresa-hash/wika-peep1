@@ -4,8 +4,9 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import { guardarCaixa } from '../services';
 import { FAMILIAS } from '../constants';
 
+type SuccessModal = { bloco: number; posicao: number; caixa: string; total: number } | null;
+
 type ResultState =
-  | { type: 'success'; bloco: number; posicao: number; caixa: string; total: number }
   | { type: 'error'; message: string }
   | null;
 
@@ -16,6 +17,7 @@ export default function Embalagem() {
   const [caixa, setCaixa] = useState(Object.keys(FAMILIAS)[0]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ResultState>(null);
+  const [modal, setModal] = useState<SuccessModal>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
 
   function clearResult() { setResult(null); }
@@ -59,7 +61,7 @@ export default function Embalagem() {
         codigoItem.trim().toUpperCase(),
         ordemProducao.trim().toUpperCase()
       );
-      setResult({ type: 'success', ...res, caixa });
+      setModal({ ...res, caixa });
       // Clear for next box
       setCodigoItem('');
       setOrdemProducao('');
@@ -201,19 +203,86 @@ export default function Embalagem() {
           </form>
         </div>
 
-        {/* Result */}
-        {result?.type === 'success' && (
-          <div className="card mt-16" style={{ animation: 'slideUp 250ms cubic-bezier(0.34,1.56,0.64,1)' }}>
-            <div className="address-block">
-              <div className="address-main">Bloco {result.bloco} · {String(result.posicao).padStart(3, '0')}</div>
-              <div className="address-sub">Leve a caixa para esta posição</div>
-            </div>
-            <div className="flex-center mt-12" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              Caixa <strong style={{ marginLeft: 4 }}>{result.caixa}</strong>&nbsp;registrada.
-              Este pedido tem <strong>&nbsp;{result.total}&nbsp;</strong>caixa(s) na área de espera.
+        {/* Success Modal */}
+        {modal && (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 1000,
+              background: 'rgba(0,0,0,0.65)',
+              backdropFilter: 'blur(6px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '24px',
+              animation: 'fadeIn 200ms ease',
+            }}
+          >
+            <div style={{
+              background: 'var(--surface)',
+              borderRadius: '24px',
+              padding: '36px 28px 28px',
+              width: '100%',
+              maxWidth: '380px',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+              animation: 'slideUp 280ms cubic-bezier(0.34,1.56,0.64,1)',
+              textAlign: 'center',
+            }}>
+              {/* Ícone de sucesso */}
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 20px',
+                boxShadow: '0 8px 24px rgba(34,197,94,0.4)',
+              }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+
+              <p style={{ margin: '0 0 4px', fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Leve a caixa para
+              </p>
+
+              {/* Endereço em destaque */}
+              <div style={{
+                background: 'var(--wika-blue-subtle)',
+                borderRadius: '16px',
+                padding: '20px 24px',
+                margin: '12px 0 16px',
+                border: '2px solid var(--wika-blue)',
+              }}>
+                <div style={{
+                  fontSize: '2.75rem',
+                  fontWeight: 800,
+                  color: 'var(--wika-dark)',
+                  letterSpacing: '-1px',
+                  lineHeight: 1.1,
+                }}>Bloco {modal.bloco}</div>
+                <div style={{
+                  fontSize: '2rem',
+                  fontWeight: 700,
+                  color: 'var(--wika-blue)',
+                  letterSpacing: '0.05em',
+                  marginTop: 4,
+                }}>Posição {String(modal.posicao).padStart(3, '0')}</div>
+              </div>
+
+              <p style={{ margin: '0 0 24px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                Caixa <strong>{modal.caixa}</strong> registrada · {modal.total} caixa(s) neste pedido
+              </p>
+
+              {/* Botão de confirmação */}
+              <button
+                id="emb-confirmar-posicao"
+                className="btn btn-primary btn-full"
+                style={{ fontSize: '1rem', padding: '14px', gap: '10px' }}
+                onClick={() => setModal(null)}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                Caixa colocada no lugar ✓
+              </button>
             </div>
           </div>
         )}
